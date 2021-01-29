@@ -765,7 +765,22 @@ func (a *API) ClientDealPieceCID(ctx context.Context, root cid.Cid) (api.DataCID
 	}
 
 	dataCIDSize, err := w.Sum()
-	return api.DataCIDSize(dataCIDSize), err
+	if err != nil {
+		return api.DataCIDSize{}, err
+	}
+
+	headerSize, err := car.HeaderSize(&car.CarHeader{
+		Roots:   []cid.Cid{root},
+		Version: 1,
+	})
+	if err != nil {
+		return api.DataCIDSize{}, err
+	}
+	fmt.Printf("data payload size:     %d\n", dataCIDSize.PayloadSize)
+	fmt.Printf("CAR file header size:  %d\n", headerSize)
+	fmt.Printf("payload - header size: %d\n", uint64(dataCIDSize.PayloadSize)-headerSize)
+
+	return api.DataCIDSize(dataCIDSize), nil
 }
 
 func (a *API) ClientGenCar(ctx context.Context, ref api.FileRef, outputPath string) error {
