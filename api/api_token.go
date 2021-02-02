@@ -11,8 +11,8 @@ import (
 )
 
 type (
-	Spender = address.Address
-	Holder  = address.Address
+	TokenSpender = address.Address
+	TokenHolder  = address.Address
 )
 
 type TokenAPI interface {
@@ -23,11 +23,11 @@ type TokenAPI interface {
 	TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)
 
 	// TokenGetHolders returns all holders of the token, along with their balances.
-	TokenGetHolders(ctx context.Context, token address.Address) (map[Holder]abi.TokenAmount, error)
+	TokenGetHolders(ctx context.Context, token address.Address) (map[TokenHolder]abi.TokenAmount, error)
 
 	// TokenGetSpendersOf returns all addresses the holder has authorized to
 	// spend on their behalf, along with the available amounts.
-	TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[Spender]abi.TokenAmount, error)
+	TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[TokenSpender]abi.TokenAmount, error)
 
 	// TokenTransfer sends the specified amount of tokens from one address to
 	// another.

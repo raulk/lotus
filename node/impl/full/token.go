@@ -53,7 +53,7 @@ func (t *TokenAPI) TokenBalanceOf(ctx context.Context, tokenAddr address.Address
 	return state.BalanceOf(holder)
 }
 
-func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) (map[api.Holder]abi.TokenAmount, error) {
+func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) (map[api.TokenHolder]abi.TokenAmount, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
@@ -64,7 +64,7 @@ func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Addres
 		return nil, fmt.Errorf("failed to load actor state: %w", err)
 	}
 
-	ret := make(map[api.Holder]abi.TokenAmount)
+	ret := make(map[api.TokenHolder]abi.TokenAmount)
 	err = state.ForEachHolder(func(holder address.Address, balance abi.TokenAmount) error {
 		ret[holder] = balance
 		return nil
@@ -72,7 +72,7 @@ func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Addres
 	return ret, err
 }
 
-func (t *TokenAPI) TokenGetSpendersOf(ctx context.Context, tokenAddr address.Address, holder address.Address) (map[api.Spender]abi.TokenAmount, error) {
+func (t *TokenAPI) TokenGetSpendersOf(ctx context.Context, tokenAddr address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
