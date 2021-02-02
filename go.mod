@@ -157,3 +157,5 @@ replace github.com/golangci/golangci-lint => github.com/golangci/golangci-lint v
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
 
 replace github.com/filecoin-project/test-vectors => ./extern/test-vectors
+
+replace github.com/filecoin-project/specs-actors/v3 => github.com/acruikshank/specs-actors/v3 v3.0.1-0.20210202164909-4836f091498e
