@@ -31,20 +31,8 @@ type state3 struct {
 	store adt.Store
 }
 
-func (s *state3) Name() string {
-	return s.State.Name
-}
-
-func (s *state3) Symbol() string {
-	return s.State.Symbol
-}
-
-func (s *state3) Decimals() uint64 {
-	return s.State.Decimals
-}
-
-func (s *state3) TotalSupply() abi.TokenAmount {
-	return s.State.TotalSupply
+func (s *state3) TokenInfo() (*Info, error) {
+	return s.State.TokenInfo(), nil
 }
 
 func (s *state3) BalanceOf(holder address.Address) (abi.TokenAmount, error) {

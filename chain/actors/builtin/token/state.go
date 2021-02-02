@@ -1,16 +1,19 @@
 package token
 
 import (
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/cbor"
-	builtin3 "github.com/filecoin-project/specs-actors/v3/actors/builtin"
-	"github.com/ipfs/go-cid"
-	"golang.org/x/xerrors"
-
 	"github.com/filecoin-project/lotus/chain/actors/adt"
 	"github.com/filecoin-project/lotus/chain/actors/builtin"
 	"github.com/filecoin-project/lotus/chain/types"
+
+	"github.com/filecoin-project/go-state-types/cbor"
+	builtin3 "github.com/filecoin-project/specs-actors/v3/actors/builtin"
+	token3 "github.com/filecoin-project/specs-actors/v3/actors/builtin/token"
+
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+
+	"github.com/ipfs/go-cid"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -19,7 +22,11 @@ func init() {
 	})
 }
 
-// Load returns an abstract copy of the token actor state, regardless of
+// TokenInfo is returned by the TokenInfo() method. Currently an alias to the
+// appropriate actor return type.
+type Info = token3.TokenInfo
+
+// Load returns an abstract copy of the token3 actor state, regardless of
 // the actor version.
 func Load(store adt.Store, act *types.Actor) (State, error) {
 	switch act.Code {
@@ -29,22 +36,13 @@ func Load(store adt.Store, act *types.Actor) (State, error) {
 	return nil, xerrors.Errorf("unknown actor code %s", act.Code)
 }
 
-// State is an abstract version of the token actor's state that works across
+// State is an abstract version of the token3 actor's state that works across
 // versions.
 type State interface {
 	cbor.Marshaler
 
-	// Name returns the name of this token.
-	Name() string
-
-	// Symbol returns the symbol of this token.
-	Symbol() string
-
-	// Decimals returns the decimals places for this token.
-	Decimals() uint64
-
-	// TotalSupply returns the total supply for this token.
-	TotalSupply() abi.TokenAmount
+	// TokenInfo returns the token's information.
+	TokenInfo() (*Info, error)
 
 	// BalanceOf returns the balance of
 	BalanceOf(holder address.Address) (abi.TokenAmount, error)
