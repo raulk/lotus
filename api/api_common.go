@@ -16,7 +16,6 @@ import (
 )
 
 type Common interface {
-
 	// MethodGroup: Auth
 
 	AuthVerify(ctx context.Context, token string) ([]auth.Permission, error)
