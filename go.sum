@@ -56,8 +56,8 @@ github.com/Stebalien/go-bitfield v0.0.1/go.mod h1:GNjFpasyUVkHMsfEOk8EFLJ9syQ6SI
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
 github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d h1:licZJFw2RwpHMqeKTCYkitsPqHNxTmd4SNR5r94FGM8=
 github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d/go.mod h1:asat636LX7Bqt5lYEZ27JNDcqxfjdBQuJ/MM4CN/Lzo=
-github.com/acruikshank/specs-actors/v3 v3.0.1-0.20210202193610-7bcfc383c0d0 h1:HdjW98Uq3wDMTLarT+s1fjHVg9Ony6AlcsMlfEXcvuM=
-github.com/acruikshank/specs-actors/v3 v3.0.1-0.20210202193610-7bcfc383c0d0/go.mod h1:NL24TPjJGyU7fh1ztpUyYcoZi3TmRKNEI0huPYmhObA=
+github.com/acruikshank/specs-actors/v3 v3.0.1-0.20210202224014-f3e6283b3640 h1:Mdgvyr1nSFCTCve+zw/YHwIudnehY8QEjJi77fwCp60=
+github.com/acruikshank/specs-actors/v3 v3.0.1-0.20210202224014-f3e6283b3640/go.mod h1:NL24TPjJGyU7fh1ztpUyYcoZi3TmRKNEI0huPYmhObA=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/akavel/rsrc v0.8.0 h1:zjWn7ukO9Kc5Q62DOJCcxGpXC18RawVtYAGdz2aLlfw=
