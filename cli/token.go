@@ -123,6 +123,9 @@ var tokenCreateCmd = &cli.Command{
 			Icon:        icon,
 			TotalSupply: supply,
 		})
+		if err != nil {
+			return fmt.Errorf("token creation failed: %w", err)
+		}
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
@@ -367,6 +370,9 @@ var tokenTransferCmd = &cli.Command{
 		}
 
 		mcid, err := api.TokenTransfer(ctx, token, from, to, amount)
+		if err != nil {
+			return fmt.Errorf("transfer failed: %w", err)
+		}
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
@@ -390,13 +396,13 @@ var tokenTransferFromCmd = &cli.Command{
 	ArgsUsage: "<recipient> <amount>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "from",
-			Usage: "token holder address",
+			Name:     "from",
+			Usage:    "token holder address",
+			Required: true,
 		},
 		&cli.StringFlag{
-			Name:     "sender",
-			Usage:    "address of the delegate that's approved to spend the funds; will use the wallet default address if not provided",
-			Required: true,
+			Name:  "sender",
+			Usage: "address of the delegate that's approved to spend the funds; will use the wallet default address if not provided",
 		},
 		&cli.StringFlag{
 			Name:     "token",
@@ -464,6 +470,9 @@ var tokenTransferFromCmd = &cli.Command{
 		}
 
 		mcid, err := api.TokenTransferFrom(ctx, token, from, sender, to, amount)
+		if err != nil {
+			return fmt.Errorf("delegated transfer failed: %w", err)
+		}
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
@@ -549,6 +558,9 @@ var tokenApproveCmd = &cli.Command{
 		}
 
 		mcid, err := api.TokenApprove(ctx, token, from, delegate, amount)
+		if err != nil {
+			return fmt.Errorf("approval failed: %w", err)
+		}
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)

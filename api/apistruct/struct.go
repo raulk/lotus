@@ -273,8 +273,8 @@ type FullNodeStruct struct {
 		TokenInfo          func(ctx context.Context, token address.Address) (*token.Info, error)                                                       `perm:"read"`
 		TokenCreate        func(ctx context.Context, creator address.Address, info *token.Info) (cid.Cid, error)                                       `perm:"sign"`
 		TokenBalanceOf     func(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)                           `perm:"read"`
-		TokenGetHolders    func(ctx context.Context, token address.Address) (map[api.TokenHolder]abi.TokenAmount, error)                               `perm:"read"`
-		TokenGetSpendersOf func(ctx context.Context, token address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error)      `perm:"read"`
+		TokenGetHolders    func(ctx context.Context, token address.Address) (map[string]abi.TokenAmount, error)                                        `perm:"read"`
+		TokenGetSpendersOf func(ctx context.Context, token address.Address, holder address.Address) (map[string]abi.TokenAmount, error)                `perm:"read"`
 		TokenTransfer      func(ctx context.Context, token address.Address, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error)         `perm:"sign"`
 		TokenTransferFrom  func(ctx context.Context, token address.Address, holder, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error) `perm:"sign"`
 		TokenApprove       func(ctx context.Context, token address.Address, holder, spender address.Address, amount abi.TokenAmount) (cid.Cid, error)  `perm:"sign"`
@@ -1265,11 +1265,11 @@ func (c *FullNodeStruct) TokenBalanceOf(ctx context.Context, token address.Addre
 	return c.Internal.TokenBalanceOf(ctx, token, holder)
 }
 
-func (c *FullNodeStruct) TokenGetHolders(ctx context.Context, token address.Address) (map[api.TokenHolder]abi.TokenAmount, error) {
+func (c *FullNodeStruct) TokenGetHolders(ctx context.Context, token address.Address) (map[string]abi.TokenAmount, error) {
 	return c.Internal.TokenGetHolders(ctx, token)
 }
 
-func (c *FullNodeStruct) TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error) {
+func (c *FullNodeStruct) TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[string]abi.TokenAmount, error) {
 	return c.Internal.TokenGetSpendersOf(ctx, token, holder)
 }
 

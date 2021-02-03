@@ -61,7 +61,7 @@ func (t *TokenAPI) TokenBalanceOf(ctx context.Context, tokenAddr address.Address
 	return state.BalanceOf(holder)
 }
 
-func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) (map[api.TokenHolder]abi.TokenAmount, error) {
+func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) (map[string]abi.TokenAmount, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
@@ -72,15 +72,15 @@ func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Addres
 		return nil, fmt.Errorf("failed to load actor state: %w", err)
 	}
 
-	ret := make(map[api.TokenHolder]abi.TokenAmount)
+	ret := make(map[string]abi.TokenAmount)
 	err = state.ForEachHolder(func(holder address.Address, balance abi.TokenAmount) error {
-		ret[holder] = balance
+		ret[holder.String()] = balance
 		return nil
 	})
 	return ret, err
 }
 
-func (t *TokenAPI) TokenGetSpendersOf(ctx context.Context, tokenAddr address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error) {
+func (t *TokenAPI) TokenGetSpendersOf(ctx context.Context, tokenAddr address.Address, holder address.Address) (map[string]abi.TokenAmount, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
@@ -91,7 +91,17 @@ func (t *TokenAPI) TokenGetSpendersOf(ctx context.Context, tokenAddr address.Add
 		return nil, fmt.Errorf("failed to load actor state: %w", err)
 	}
 
-	return state.ApprovalsBy(holder)
+	approvals, err := state.ApprovalsBy(holder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get approvals: %w", err)
+	}
+
+	ret := make(map[string]abi.TokenAmount)
+	for addr, available := range approvals {
+		ret[addr.String()] = available
+	}
+
+	return ret, nil
 }
 
 func (t *TokenAPI) TokenTransfer(ctx context.Context, tokenAddr address.Address, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error) {

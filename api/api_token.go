@@ -10,11 +10,7 @@ import (
 	"github.com/filecoin-project/lotus/chain/actors/builtin/token"
 )
 
-type (
-	TokenSpender = address.Address
-	TokenHolder  = address.Address
-	TokenInfo    = token.Info
-)
+type TokenInfo = token.Info
 
 type TokenAPI interface {
 	// TokenInfo returns the token's information.
@@ -27,11 +23,11 @@ type TokenAPI interface {
 	TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)
 
 	// TokenGetHolders returns all holders of the token, along with their balances.
-	TokenGetHolders(ctx context.Context, token address.Address) (map[TokenHolder]abi.TokenAmount, error)
+	TokenGetHolders(ctx context.Context, token address.Address) (map[string]abi.TokenAmount, error)
 
 	// TokenGetSpendersOf returns all addresses the holder has authorized to
 	// spend on their behalf, along with the available amounts.
-	TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[TokenSpender]abi.TokenAmount, error)
+	TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[string]abi.TokenAmount, error)
 
 	// TokenTransfer sends the specified amount of tokens from one address to
 	// another.
