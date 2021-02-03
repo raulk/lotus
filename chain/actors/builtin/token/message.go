@@ -33,6 +33,6 @@ type MessageBuilder interface {
 	// TransferFrom produces a message to transfer a token amount to another account, via a delegation.
 	TransferFrom(token address.Address, holder, to address.Address, amount abi.TokenAmount) (*types.Message, error)
 
-	// TransferApprove produces a message to approve another account as a spender for the sender.
-	TokenApprove(token address.Address, spender address.Address, amount abi.TokenAmount) (*types.Message, error)
+	// Approve produces a message to approve another account as a spender for the sender.
+	Approve(token address.Address, spender address.Address, amount abi.TokenAmount) (*types.Message, error)
 }

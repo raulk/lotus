@@ -13,11 +13,15 @@ import (
 type (
 	TokenSpender = address.Address
 	TokenHolder  = address.Address
+	TokenInfo    = token.Info
 )
 
 type TokenAPI interface {
 	// TokenInfo returns the token's information.
-	TokenInfo(ctx context.Context, token address.Address) (*token.Info, error)
+	TokenInfo(ctx context.Context, token address.Address) (*TokenInfo, error)
+
+	// TokenCreate creates a new token with the specified info.
+	TokenCreate(ctx context.Context, creator address.Address, info *TokenInfo) (cid.Cid, error)
 
 	// TokenBalanceOf returns the balance the holder has of the specified token.
 	TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)

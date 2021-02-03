@@ -271,6 +271,7 @@ type FullNodeStruct struct {
 		PaychVoucherSubmit          func(context.Context, address.Address, *paych.SignedVoucher, []byte, []byte) (cid.Cid, error)             `perm:"sign"`
 
 		TokenInfo          func(ctx context.Context, token address.Address) (*token.Info, error)                                                       `perm:"read"`
+		TokenCreate        func(ctx context.Context, creator address.Address, info *token.Info) (cid.Cid, error)                                       `perm:"sign"`
 		TokenBalanceOf     func(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)                           `perm:"read"`
 		TokenGetHolders    func(ctx context.Context, token address.Address) (map[api.TokenHolder]abi.TokenAmount, error)                               `perm:"read"`
 		TokenGetSpendersOf func(ctx context.Context, token address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error)      `perm:"read"`
@@ -1254,6 +1255,10 @@ func (c *FullNodeStruct) PaychVoucherSubmit(ctx context.Context, ch address.Addr
 
 func (c *FullNodeStruct) TokenInfo(ctx context.Context, token address.Address) (*token.Info, error) {
 	return c.Internal.TokenInfo(ctx, token)
+}
+
+func (c *FullNodeStruct) TokenCreate(ctx context.Context, creator address.Address, info *token.Info) (cid.Cid, error) {
+	return c.Internal.TokenCreate(ctx, creator, info)
 }
 
 func (c *FullNodeStruct) TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error) {

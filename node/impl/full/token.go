@@ -41,6 +41,12 @@ func (t *TokenAPI) TokenInfo(ctx context.Context, tokenAddr address.Address) (*t
 	return state.TokenInfo()
 }
 
+func (t *TokenAPI) TokenCreate(ctx context.Context, creator address.Address, info *token.Info) (cid.Cid, error) {
+	return t.pushMessage(ctx, creator, func(mb token.MessageBuilder) (*types.Message, error) {
+		return mb.Create(info)
+	})
+}
+
 func (t *TokenAPI) TokenBalanceOf(ctx context.Context, tokenAddr address.Address, holder address.Address) (abi.TokenAmount, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
@@ -117,7 +123,7 @@ func (t *TokenAPI) TokenApprove(ctx context.Context, tokenAddr address.Address, 
 	}
 
 	return t.pushMessage(ctx, holder, func(mb token.MessageBuilder) (*types.Message, error) {
-		return mb.TokenApprove(tokenAddr, spender, amount)
+		return mb.Approve(tokenAddr, spender, amount)
 	})
 }
 

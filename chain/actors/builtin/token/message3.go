@@ -95,7 +95,7 @@ func (m message3) TransferFrom(tokenAddr address.Address, holder, to address.Add
 	}, nil
 }
 
-func (m message3) TokenApprove(tokenAddr address.Address, spender address.Address, amount abi.TokenAmount) (*types.Message, error) {
+func (m message3) Approve(tokenAddr address.Address, spender address.Address, amount abi.TokenAmount) (*types.Message, error) {
 	params := &token.ApproveParams{
 		Approvee: spender,
 		Value:    amount,
