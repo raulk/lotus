@@ -25,6 +25,7 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/dline"
 	stnetwork "github.com/filecoin-project/go-state-types/network"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/token"
 	"github.com/filecoin-project/lotus/extern/sector-storage/fsutil"
 	"github.com/filecoin-project/lotus/extern/sector-storage/sealtasks"
 	"github.com/filecoin-project/lotus/extern/sector-storage/stores"
@@ -268,6 +269,14 @@ type FullNodeStruct struct {
 		PaychVoucherCreate          func(context.Context, address.Address, big.Int, uint64) (*api.VoucherCreateResult, error)                 `perm:"sign"`
 		PaychVoucherList            func(context.Context, address.Address) ([]*paych.SignedVoucher, error)                                    `perm:"write"`
 		PaychVoucherSubmit          func(context.Context, address.Address, *paych.SignedVoucher, []byte, []byte) (cid.Cid, error)             `perm:"sign"`
+
+		TokenInfo          func(ctx context.Context, token address.Address) (*token.Info, error)                                                       `perm:"read"`
+		TokenBalanceOf     func(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)                           `perm:"read"`
+		TokenGetHolders    func(ctx context.Context, token address.Address) (map[api.TokenHolder]abi.TokenAmount, error)                               `perm:"read"`
+		TokenGetSpendersOf func(ctx context.Context, token address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error)      `perm:"read"`
+		TokenTransfer      func(ctx context.Context, token address.Address, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error)         `perm:"sign"`
+		TokenTransferFrom  func(ctx context.Context, token address.Address, holder, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error) `perm:"sign"`
+		TokenApprove       func(ctx context.Context, token address.Address, holder, spender address.Address, amount abi.TokenAmount) (cid.Cid, error)  `perm:"sign"`
 
 		CreateBackup func(ctx context.Context, fpath string) error `perm:"admin"`
 	}
@@ -1241,6 +1250,34 @@ func (c *FullNodeStruct) PaychNewPayment(ctx context.Context, from, to address.A
 
 func (c *FullNodeStruct) PaychVoucherSubmit(ctx context.Context, ch address.Address, sv *paych.SignedVoucher, secret []byte, proof []byte) (cid.Cid, error) {
 	return c.Internal.PaychVoucherSubmit(ctx, ch, sv, secret, proof)
+}
+
+func (c *FullNodeStruct) TokenInfo(ctx context.Context, token address.Address) (*token.Info, error) {
+	return c.Internal.TokenInfo(ctx, token)
+}
+
+func (c *FullNodeStruct) TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error) {
+	return c.Internal.TokenBalanceOf(ctx, token, holder)
+}
+
+func (c *FullNodeStruct) TokenGetHolders(ctx context.Context, token address.Address) (map[api.TokenHolder]abi.TokenAmount, error) {
+	return c.Internal.TokenGetHolders(ctx, token)
+}
+
+func (c *FullNodeStruct) TokenGetSpendersOf(ctx context.Context, token address.Address, holder address.Address) (map[api.TokenSpender]abi.TokenAmount, error) {
+	return c.Internal.TokenGetSpendersOf(ctx, token, holder)
+}
+
+func (c *FullNodeStruct) TokenTransfer(ctx context.Context, token address.Address, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error) {
+	return c.Internal.TokenTransfer(ctx, token, from, to, amount)
+}
+
+func (c *FullNodeStruct) TokenTransferFrom(ctx context.Context, token address.Address, holder, from, to address.Address, amount abi.TokenAmount) (cid.Cid, error) {
+	return c.Internal.TokenTransferFrom(ctx, token, holder, from, to, amount)
+}
+
+func (c *FullNodeStruct) TokenApprove(ctx context.Context, token address.Address, holder, spender address.Address, amount abi.TokenAmount) (cid.Cid, error) {
+	return c.Internal.TokenApprove(ctx, token, holder, spender, amount)
 }
 
 func (c *FullNodeStruct) CreateBackup(ctx context.Context, fpath string) error {

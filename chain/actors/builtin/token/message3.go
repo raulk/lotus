@@ -18,7 +18,7 @@ type message3 struct {
 	from address.Address
 }
 
-var _ MessageBuilder = (message3)(nil)
+var _ MessageBuilder = message3{}
 
 func (m message3) Create(info *Info) (*types.Message, error) {
 	params := &token.ConstructorParams{
