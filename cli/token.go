@@ -5,18 +5,20 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-
-	init3 "github.com/filecoin-project/specs-actors/v3/actors/builtin/init"
-
-	"github.com/filecoin-project/lotus/chain/actors/builtin/token"
-
-	"github.com/filecoin-project/go-state-types/abi"
+	"io"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/urfave/cli/v2"
+	"github.com/filecoin-project/go-state-types/abi"
+	init3 "github.com/filecoin-project/specs-actors/v3/actors/builtin/init"
+	"github.com/ipfs/go-cid"
+	"github.com/pkg/errors"
 
+	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/build"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/token"
 	"github.com/filecoin-project/lotus/chain/types"
+
+	"github.com/urfave/cli/v2"
 )
 
 var tokenCmd = &cli.Command{
@@ -36,7 +38,6 @@ var tokenCmd = &cli.Command{
 		tokenHoldersCmd,
 		tokenDelegationsCmd,
 		tokenTransferCmd,
-		tokenTransferFromCmd,
 		tokenApproveCmd,
 	},
 }
@@ -46,8 +47,8 @@ var tokenCreateCmd = &cli.Command{
 	Usage: "Create a new token actor",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "creator",
-			Usage: "the wallet address to create the actor from; will use the wallet default address if not provided",
+			Name:  "owner",
+			Usage: "the wallet address to create the token from; it will own the total supply; will use the wallet default address if not provided",
 		},
 		&cli.StringFlag{
 			Name:     "name",
@@ -75,6 +76,8 @@ var tokenCreateCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		w := cctx.App.Writer
+
 		api, closer, err := GetFullNodeAPI(cctx)
 		if err != nil {
 			return err
@@ -91,20 +94,20 @@ var tokenCreateCmd = &cli.Command{
 			iconb64  = cctx.String("icon")
 			decimals = cctx.Uint64("decimals")
 
-			creator address.Address
-			supply  abi.TokenAmount
-			icon    []byte
+			owner  address.Address
+			supply abi.TokenAmount
+			icon   []byte
 		)
 
-		if c := cctx.String("creator"); c == "" {
-			creator, err = api.WalletDefaultAddress(ctx)
+		if c := cctx.String("owner"); c == "" {
+			owner, err = api.WalletDefaultAddress(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get wallet default address: %w", err)
 			}
 		} else {
-			creator, err = address.NewFromString(c)
+			owner, err = address.NewFromString(c)
 			if err != nil {
-				return fmt.Errorf("failed to parse creator address: %w", err)
+				return fmt.Errorf("failed to parse owner address: %w", err)
 			}
 		}
 
@@ -116,7 +119,9 @@ var tokenCreateCmd = &cli.Command{
 			return fmt.Errorf("failed to decode base64 icon: %w", err)
 		}
 
-		mcid, err := api.TokenCreate(ctx, creator, &token.Info{
+		_, _ = fmt.Fprintf(w, "creating token %s (%s) with owner %s and total supply %d\n", name, symbol, owner, supply)
+
+		mcid, err := api.TokenCreate(ctx, owner, &token.Info{
 			Name:        name,
 			Symbol:      symbol,
 			Decimals:    decimals,
@@ -127,15 +132,15 @@ var tokenCreateCmd = &cli.Command{
 			return fmt.Errorf("token creation failed: %w", err)
 		}
 
+		_, _ = fmt.Fprintf(w, "message CID: %s\n", mcid)
+
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
 		if err != nil {
 			return fmt.Errorf("failed to wait for message: %w", err)
 		}
 
-		// check it executed successfully
-		if result.Receipt.ExitCode != 0 {
-			_, _ = fmt.Fprintln(cctx.App.Writer, "actor creation failed!")
+		if err = processResult(w, result); err != nil {
 			return err
 		}
 
@@ -144,18 +149,27 @@ var tokenCreateCmd = &cli.Command{
 		if err := ret.UnmarshalCBOR(bytes.NewReader(result.Receipt.Return)); err != nil {
 			return err
 		}
-		_, _ = fmt.Fprintln(cctx.App.Writer, "Created new token actor: ", ret.IDAddress, ret.RobustAddress)
+
+		_, _ = fmt.Fprintln(cctx.App.Writer, "created new token actor: ", ret.IDAddress, ret.RobustAddress)
 		return nil
 	},
 }
 
 var tokenInfoCmd = &cli.Command{
-	Name:      "info",
-	Usage:     "Retrieve the basic info of a token actor",
-	ArgsUsage: "<address>",
+	Name:  "info",
+	Usage: "Retrieve the basic info of a token actor",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Usage:    "token actor address",
+			Required: true,
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		if cctx.NArg() != 1 {
-			return ShowHelp(cctx, fmt.Errorf("must specify address of token actor"))
+		t := cctx.String("token")
+		addr, err := address.NewFromString(t)
+		if err != nil {
+			return fmt.Errorf("failed to parse address %s: %w", t, err)
 		}
 
 		api, closer, err := GetFullNodeAPI(cctx)
@@ -165,11 +179,6 @@ var tokenInfoCmd = &cli.Command{
 		defer closer()
 
 		ctx := ReqContext(cctx)
-
-		addr, err := address.NewFromString(cctx.Args().First())
-		if err != nil {
-			return fmt.Errorf("failed to parse address %s: %w", addr, err)
-		}
 
 		info, err := api.TokenInfo(ctx, addr)
 		if err != nil {
@@ -189,10 +198,23 @@ var tokenInfoCmd = &cli.Command{
 var tokenBalanceCmd = &cli.Command{
 	Name:      "balance",
 	Usage:     "Retrieve the balances of token holders",
-	ArgsUsage: "<token address> <holders...>",
-	Action: func(cctx *cli.Context) error {
-		if cctx.NArg() < 2 {
-			return ShowHelp(cctx, fmt.Errorf("must specify address of token actor and at least one holder address"))
+	ArgsUsage: "<holders...>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Usage:    "token actor address",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) (err error) {
+		if cctx.NArg() < 1 {
+			return ShowHelp(cctx, fmt.Errorf("must specify at least one holder address"))
+		}
+
+		t := cctx.String("token")
+		token, err := address.NewFromString(t)
+		if err != nil {
+			return fmt.Errorf("failed to parse address %s: %w", t, err)
 		}
 
 		api, closer, err := GetFullNodeAPI(cctx)
@@ -203,17 +225,14 @@ var tokenBalanceCmd = &cli.Command{
 
 		ctx := ReqContext(cctx)
 
-		addrs := make([]address.Address, 0, cctx.NArg())
+		holders := make([]address.Address, 0, cctx.NArg())
 		for _, a := range cctx.Args().Slice() {
 			addr, err := address.NewFromString(a)
 			if err != nil {
 				return fmt.Errorf("failed to parse address %s: %w", a, err)
 			}
-			addrs = append(addrs, addr)
+			holders = append(holders, addr)
 		}
-
-		token := addrs[0]
-		holders := addrs[1:]
 
 		for _, holder := range holders {
 			balance, err := api.TokenBalanceOf(ctx, token, holder)
@@ -228,12 +247,20 @@ var tokenBalanceCmd = &cli.Command{
 }
 
 var tokenHoldersCmd = &cli.Command{
-	Name:      "holders",
-	Usage:     "Retrieve all token holders and their balances",
-	ArgsUsage: "<token address>",
-	Action: func(cctx *cli.Context) error {
-		if cctx.NArg() != 1 {
-			return ShowHelp(cctx, fmt.Errorf("must specify address of token actor"))
+	Name:  "holders",
+	Usage: "Retrieve all token holders and their balances",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Usage:    "token actor address",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) (err error) {
+		t := cctx.String("token")
+		token, err := address.NewFromString(t)
+		if err != nil {
+			return fmt.Errorf("failed to parse address %s: %w", t, err)
 		}
 
 		api, closer, err := GetFullNodeAPI(cctx)
@@ -244,12 +271,7 @@ var tokenHoldersCmd = &cli.Command{
 
 		ctx := ReqContext(cctx)
 
-		addr, err := address.NewFromString(cctx.Args().First())
-		if err != nil {
-			return fmt.Errorf("failed to parse address %s: %w", addr, err)
-		}
-
-		holders, err := api.TokenGetHolders(ctx, addr)
+		holders, err := api.TokenGetHolders(ctx, token)
 		if err != nil {
 			return fmt.Errorf("failed to get holders: %w", err)
 		}
@@ -265,10 +287,23 @@ var tokenHoldersCmd = &cli.Command{
 var tokenDelegationsCmd = &cli.Command{
 	Name:      "delegations",
 	Usage:     "Retrieve all token spending delegations from the provided holder address for the provided token",
-	ArgsUsage: "<token address> <holder>",
+	ArgsUsage: "<holder>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Usage:    "token actor address",
+			Required: true,
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		if cctx.NArg() != 2 {
-			return ShowHelp(cctx, fmt.Errorf("must specify addresses of token actor and the holder"))
+		if cctx.NArg() != 1 {
+			return ShowHelp(cctx, fmt.Errorf("must specify the holder's address"))
+		}
+
+		t := cctx.String("token")
+		token, err := address.NewFromString(t)
+		if err != nil {
+			return fmt.Errorf("failed to parse address %s: %w", t, err)
 		}
 
 		api, closer, err := GetFullNodeAPI(cctx)
@@ -279,17 +314,12 @@ var tokenDelegationsCmd = &cli.Command{
 
 		ctx := ReqContext(cctx)
 
-		tokenAddr, err := address.NewFromString(cctx.Args().First())
-		if err != nil {
-			return fmt.Errorf("failed to parse address %s: %w", tokenAddr, err)
-		}
-
 		holderAddr, err := address.NewFromString(cctx.Args().Get(1))
 		if err != nil {
 			return fmt.Errorf("failed to parse address %s: %w", holderAddr, err)
 		}
 
-		delegations, err := api.TokenGetSpendersOf(ctx, tokenAddr, holderAddr)
+		delegations, err := api.TokenGetSpendersOf(ctx, token, holderAddr)
 		if err != nil {
 			return fmt.Errorf("failed to get holders: %w", err)
 		}
@@ -304,12 +334,16 @@ var tokenDelegationsCmd = &cli.Command{
 
 var tokenTransferCmd = &cli.Command{
 	Name:      "transfer",
-	Usage:     "Transfer a token balance",
+	Usage:     "Transfer a token balance, either directly or via a delegation",
 	ArgsUsage: "<recipient> <amount>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "from",
-			Usage: "sender address; will use the wallet default address if not provided",
+			Name:  "delegated-from",
+			Usage: "if not empty, this will be treated as a delegated transfer from this address",
+		},
+		&cli.StringFlag{
+			Name:  "sender",
+			Usage: "sender address and signer; will use the wallet default address if not provided",
 		},
 		&cli.StringFlag{
 			Name:     "token",
@@ -318,6 +352,8 @@ var tokenTransferCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		w := cctx.App.Writer
+
 		if cctx.NArg() != 2 {
 			return ShowHelp(cctx, fmt.Errorf("must specify recipient and amount"))
 		}
@@ -333,20 +369,20 @@ var tokenTransferCmd = &cli.Command{
 		var (
 			confidence = uint64(cctx.Int("confidence"))
 
-			from   address.Address
-			to     address.Address
-			token  address.Address
-			amount abi.TokenAmount
+			sender    address.Address
+			recipient address.Address
+			token     address.Address
+			amount    abi.TokenAmount
 		)
 
-		// sender address.
-		if c := cctx.String("from"); c == "" {
-			from, err = api.WalletDefaultAddress(ctx)
+		// sender address; default to wallet default address.
+		if c := cctx.String("sender"); c == "" {
+			sender, err = api.WalletDefaultAddress(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get wallet default address: %w", err)
 			}
 		} else {
-			from, err = address.NewFromString(c)
+			sender, err = address.NewFromString(c)
 			if err != nil {
 				return fmt.Errorf("failed to parse creator address: %w", err)
 			}
@@ -359,7 +395,7 @@ var tokenTransferCmd = &cli.Command{
 		}
 
 		// recipient address.
-		to, err = address.NewFromString(cctx.Args().First())
+		recipient, err = address.NewFromString(cctx.Args().First())
 		if err != nil {
 			return err
 		}
@@ -369,110 +405,29 @@ var tokenTransferCmd = &cli.Command{
 			return fmt.Errorf("failed to parse amount: %w", err)
 		}
 
-		mcid, err := api.TokenTransfer(ctx, token, from, to, amount)
-		if err != nil {
-			return fmt.Errorf("transfer failed: %w", err)
-		}
+		var mcid cid.Cid
 
-		// wait for it to get mined into a block
-		result, err := api.StateWaitMsg(ctx, mcid, confidence)
-		if err != nil {
-			return fmt.Errorf("failed to wait for message: %w", err)
-		}
-
-		// check it executed successfully
-		if result.Receipt.ExitCode != 0 {
-			_, _ = fmt.Fprintln(cctx.App.Writer, "transaction failed")
-			return err
-		}
-
-		return nil
-	},
-}
-
-var tokenTransferFromCmd = &cli.Command{
-	Name:      "transfer-from",
-	Usage:     "Transfer a token balance via a delegation",
-	ArgsUsage: "<recipient> <amount>",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "from",
-			Usage:    "token holder address",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:  "sender",
-			Usage: "address of the delegate that's approved to spend the funds; will use the wallet default address if not provided",
-		},
-		&cli.StringFlag{
-			Name:     "token",
-			Usage:    "token actor address",
-			Required: true,
-		},
-	},
-	Action: func(cctx *cli.Context) error {
-		if cctx.NArg() != 2 {
-			return ShowHelp(cctx, fmt.Errorf("must specify recipient and amount"))
-		}
-
-		api, closer, err := GetFullNodeAPI(cctx)
-		if err != nil {
-			return err
-		}
-		defer closer()
-
-		ctx := ReqContext(cctx)
-
-		var (
-			confidence = uint64(cctx.Int("confidence"))
-
-			from   address.Address
-			to     address.Address
-			sender address.Address
-			token  address.Address
-			amount abi.TokenAmount
-		)
-
-		// token holder address.
-		if c := cctx.String("from"); c == "" {
-			from, err = api.WalletDefaultAddress(ctx)
+		// if delegated-from address has been provided, treat as a TransferFrom.
+		if dfrom := cctx.String("delegated-from"); dfrom != "" {
+			_, _ = fmt.Fprintf(w, "delegated transfer of %d units from %s to %s via %s\n", amount, dfrom, recipient, sender)
+			dfrom, err := address.NewFromString(dfrom)
 			if err != nil {
-				return fmt.Errorf("failed to get wallet default address: %w", err)
+				return fmt.Errorf("failed to parse address %s: %w", dfrom, err)
+			}
+			mcid, err = api.TokenTransferFrom(ctx, token, dfrom, sender, recipient, amount)
+			if err != nil {
+				return fmt.Errorf("transfer from failed: %w", err)
 			}
 		} else {
-			from, err = address.NewFromString(c)
+			_, _ = fmt.Fprintf(w, "transfer of %d units from %s to %s\n", amount, sender, recipient)
+			mcid, err = api.TokenTransfer(ctx, token, sender, recipient, amount)
 			if err != nil {
-				return fmt.Errorf("failed to parse address %s: %w", from, err)
+				return fmt.Errorf("transfer failed: %w", err)
 			}
 		}
 
-		// delegate address.
-		sender, err = address.NewFromString(cctx.String("sender"))
-		if err != nil {
-			return fmt.Errorf("failed to parse address %s: %w", sender, err)
-		}
-
-		// token address.
-		token, err = address.NewFromString(cctx.String("token"))
-		if err != nil {
-			return fmt.Errorf("failed to parse address %s: %w", token, err)
-		}
-
-		// recipient address.
-		to, err = address.NewFromString(cctx.Args().First())
-		if err != nil {
-			return err
-		}
-
-		// amount.
-		if amount, err = types.BigFromString(cctx.Args().Get(1)); err != nil {
-			return fmt.Errorf("failed to parse amount: %w", err)
-		}
-
-		mcid, err := api.TokenTransferFrom(ctx, token, from, sender, to, amount)
-		if err != nil {
-			return fmt.Errorf("delegated transfer failed: %w", err)
-		}
+		_, _ = fmt.Fprintf(w, "message CID: %s\n", mcid)
+		_, _ = fmt.Fprintf(w, "awaiting %d confirmations...\n", confidence)
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
@@ -480,13 +435,7 @@ var tokenTransferFromCmd = &cli.Command{
 			return fmt.Errorf("failed to wait for message: %w", err)
 		}
 
-		// check it executed successfully
-		if result.Receipt.ExitCode != 0 {
-			_, _ = fmt.Fprintln(cctx.App.Writer, "transaction failed")
-			return err
-		}
-
-		return nil
+		return processResult(w, result)
 	},
 }
 
@@ -497,7 +446,7 @@ var tokenApproveCmd = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "from",
-			Usage: "holder address; will use the wallet default address if not provided",
+			Usage: "holder address, and signer; will use the wallet default address if not provided",
 		},
 		&cli.StringFlag{
 			Name:     "token",
@@ -506,6 +455,8 @@ var tokenApproveCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		w := cctx.App.Writer
+
 		if cctx.NArg() != 2 {
 			return ShowHelp(cctx, fmt.Errorf("must specify delegate and amount"))
 		}
@@ -521,22 +472,22 @@ var tokenApproveCmd = &cli.Command{
 		var (
 			confidence = uint64(cctx.Int("confidence"))
 
-			from     address.Address
+			holder   address.Address
 			delegate address.Address
 			token    address.Address
 			amount   abi.TokenAmount
 		)
 
-		// sender address.
-		if c := cctx.String("from"); c == "" {
-			from, err = api.WalletDefaultAddress(ctx)
+		// holder address.
+		if c := cctx.String("holder"); c == "" {
+			holder, err = api.WalletDefaultAddress(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get wallet default address: %w", err)
 			}
 		} else {
-			from, err = address.NewFromString(c)
+			holder, err = address.NewFromString(c)
 			if err != nil {
-				return fmt.Errorf("failed to parse creator address: %w", err)
+				return fmt.Errorf("failed to parse holder address: %w", err)
 			}
 		}
 
@@ -557,10 +508,15 @@ var tokenApproveCmd = &cli.Command{
 			return fmt.Errorf("failed to parse amount: %w", err)
 		}
 
-		mcid, err := api.TokenApprove(ctx, token, from, delegate, amount)
+		_, _ = fmt.Fprintf(w, "approving %s to spend %d units on behalf of %s...\n", delegate, amount, holder)
+
+		mcid, err := api.TokenApprove(ctx, token, holder, delegate, amount)
 		if err != nil {
 			return fmt.Errorf("approval failed: %w", err)
 		}
+
+		_, _ = fmt.Fprintf(w, "message CID: %s\n", mcid)
+		_, _ = fmt.Fprintf(w, "awaiting %d confirmations...\n", confidence)
 
 		// wait for it to get mined into a block
 		result, err := api.StateWaitMsg(ctx, mcid, confidence)
@@ -568,12 +524,17 @@ var tokenApproveCmd = &cli.Command{
 			return fmt.Errorf("failed to wait for message: %w", err)
 		}
 
-		// check it executed successfully
-		if result.Receipt.ExitCode != 0 {
-			_, _ = fmt.Fprintln(cctx.App.Writer, "transaction failed")
-			return err
-		}
-
-		return nil
+		return processResult(w, result)
 	},
+}
+
+func processResult(w io.Writer, result *api.MsgLookup) error {
+	// check it executed successfully
+	if code := result.Receipt.ExitCode; code != 0 {
+		msg := fmt.Sprintf("transaction failed; exit code: %d", code)
+		_, _ = fmt.Fprintln(w, msg)
+		return errors.New(msg)
+	}
+	_, _ = fmt.Fprintln(w, "transaction succeeded")
+	return nil
 }
