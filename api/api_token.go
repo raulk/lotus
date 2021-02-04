@@ -12,6 +12,12 @@ import (
 
 type TokenInfo = token.Info
 
+type Holder struct {
+	IDAddress     address.Address
+	PubKeyAddress address.Address
+	Balance       abi.TokenAmount
+}
+
 type TokenAPI interface {
 	// TokenInfo returns the token's information.
 	TokenInfo(ctx context.Context, token address.Address) (*TokenInfo, error)
@@ -23,7 +29,7 @@ type TokenAPI interface {
 	TokenBalanceOf(ctx context.Context, token address.Address, holder address.Address) (abi.TokenAmount, error)
 
 	// TokenGetHolders returns all holders of the token, along with their balances.
-	TokenGetHolders(ctx context.Context, token address.Address) (map[string]abi.TokenAmount, error)
+	TokenGetHolders(ctx context.Context, token address.Address) ([]Holder, error)
 
 	// TokenGetSpendersOf returns all addresses the holder has authorized to
 	// spend on their behalf, along with the available amounts.

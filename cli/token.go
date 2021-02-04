@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -11,12 +12,12 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	init3 "github.com/filecoin-project/specs-actors/v3/actors/builtin/init"
 	"github.com/ipfs/go-cid"
-	"github.com/pkg/errors"
 
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/token"
 	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/lib/tablewriter"
 
 	"github.com/urfave/cli/v2"
 )
@@ -257,6 +258,8 @@ var tokenHoldersCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) (err error) {
+		w := cctx.App.Writer
+
 		t := cctx.String("token")
 		token, err := address.NewFromString(t)
 		if err != nil {
@@ -276,9 +279,19 @@ var tokenHoldersCmd = &cli.Command{
 			return fmt.Errorf("failed to get holders: %w", err)
 		}
 
-		for holder, balance := range holders {
-			_, _ = fmt.Fprintln(cctx.App.Writer, holder, balance)
+		tw := tablewriter.New(tablewriter.Col("ID"),
+			tablewriter.Col("Robust"),
+			tablewriter.Col("Balance"))
+
+		for _, h := range holders {
+			tw.Write(map[string]interface{}{
+				"ID":      h.IDAddress,
+				"PubKey":  h.PubKeyAddress,
+				"Balance": h.Balance,
+			})
 		}
+
+		_ = tw.Flush(w)
 
 		return nil
 	},

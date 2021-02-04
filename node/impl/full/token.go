@@ -53,15 +53,20 @@ func (t *TokenAPI) TokenBalanceOf(ctx context.Context, tokenAddr address.Address
 		return big.Zero(), fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
 	}
 
+	id, err := t.StateAPI.StateLookupID(ctx, holder, types.EmptyTSK)
+	if err != nil {
+		return big.Zero(), fmt.Errorf("failed to resolve holder's ID address: %w", err)
+	}
+
 	state, err := token.Load(t.Chain.Store(ctx), actor)
 	if err != nil {
 		return big.Zero(), fmt.Errorf("failed to load actor state: %w", err)
 	}
 
-	return state.BalanceOf(holder)
+	return state.BalanceOf(id)
 }
 
-func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) (map[string]abi.TokenAmount, error) {
+func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Address) ([]api.Holder, error) {
 	actor, err := t.StateAPI.StateGetActor(ctx, tokenAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load token actor at address %s: %w", tokenAddr, err)
@@ -69,14 +74,20 @@ func (t *TokenAPI) TokenGetHolders(ctx context.Context, tokenAddr address.Addres
 
 	state, err := token.Load(t.Chain.Store(ctx), actor)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load actor state: %w", err)
+		return nil, fmt.Errorf("failed to load token actor state: %w", err)
 	}
 
-	ret := make(map[string]abi.TokenAmount)
+	var ret []api.Holder
 	err = state.ForEachHolder(func(holder address.Address, balance abi.TokenAmount) error {
-		ret[holder.String()] = balance
+		pubkeyAddr, _ := t.StateAPI.StateAccountKey(ctx, holder, types.EmptyTSK)
+		ret = append(ret, api.Holder{
+			IDAddress:     holder,
+			PubKeyAddress: pubkeyAddr,
+			Balance:       balance,
+		})
 		return nil
 	})
+
 	return ret, err
 }
 
