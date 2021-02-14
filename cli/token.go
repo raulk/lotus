@@ -327,7 +327,7 @@ var tokenDelegationsCmd = &cli.Command{
 
 		ctx := ReqContext(cctx)
 
-		holderAddr, err := address.NewFromString(cctx.Args().Get(1))
+		holderAddr, err := address.NewFromString(cctx.Args().Get(0))
 		if err != nil {
 			return fmt.Errorf("failed to parse address %s: %w", holderAddr, err)
 		}
