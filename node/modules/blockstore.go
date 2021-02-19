@@ -38,7 +38,7 @@ func SplitBlockstore(lc fx.Lifecycle, r repo.LockedRepo, ds dtypes.MetadataDS, b
 		return nil, err
 	}
 
-	ss, err := splitstore.NewSplitStore(path, ds, bs)
+	ss, err := splitstore.Open(path, ds, bs)
 	if err != nil {
 		return nil, err
 	}

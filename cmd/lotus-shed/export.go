@@ -96,7 +96,7 @@ var exportChainCmd = &cli.Command{
 			return err
 		}
 
-		ss, err := splitstore.NewSplitStore(ssPath, mds, bs)
+		ss, err := splitstore.Open(ssPath, mds, bs)
 		if err != nil {
 			return err
 		}

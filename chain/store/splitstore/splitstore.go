@@ -12,16 +12,17 @@ import (
 	"github.com/ledgerwatch/lmdb-go/lmdb"
 
 	blocks "github.com/ipfs/go-block-format"
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 	dstore "github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
 
 	lmdbbs "github.com/filecoin-project/go-bs-lmdb"
 	"github.com/filecoin-project/go-state-types/abi"
+
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/store"
 	"github.com/filecoin-project/lotus/chain/types"
-	bstore "github.com/filecoin-project/lotus/lib/blockstore"
+	"github.com/filecoin-project/lotus/lib/blockstore"
 )
 
 var CompactionThreshold = 5 * build.Finality
@@ -45,19 +46,21 @@ type SplitStore struct {
 
 	cs    *store.ChainStore
 	ds    dstore.Datastore
-	hot   bstore.Blockstore
-	cold  bstore.Blockstore
+	hot   blockstore.Blockstore
+	cold  blockstore.Blockstore
 	snoop TrackingStore
 
 	env *lmdb.Env
 }
 
-var _ bstore.Blockstore = (*SplitStore)(nil)
+var _ blockstore.Blockstore = (*SplitStore)(nil)
 
-// NewSplitStore creates a new SplitStore instance, given a path for the hotstore dbs and a cold
-// blockstore. The SplitStore must be attached to the ChainStore with Start in order to trigger
+// Open opens an existing splistore, or creates a new one. The takes the path
+// to the splitstore home, and opens or creates a new LMDB hot blockstore inside.
+// It also takes the cold store, where blocks will be archived when they go out of scope.
+// The SplitStore must be attached to the ChainStore with Start in order to trigger
 // compaction.
-func NewSplitStore(path string, ds dstore.Datastore, cold bstore.Blockstore) (*SplitStore, error) {
+func Open(path string, metadata dstore.Datastore, cold blockstore.Blockstore) (*SplitStore, error) {
 	// the hot store
 	path = filepath.Join(path, "hot.db")
 	hot, err := lmdbbs.Open(&lmdbbs.Options{
@@ -89,7 +92,7 @@ func NewSplitStore(path string, ds dstore.Datastore, cold bstore.Blockstore) (*S
 
 	// and now we can make a SplitStore
 	ss := &SplitStore{
-		ds:    ds,
+		ds:    metadata,
 		hot:   hot,
 		cold:  cold,
 		snoop: snoop,
@@ -122,7 +125,7 @@ func (s *SplitStore) Get(cid cid.Cid) (blocks.Block, error) {
 	case nil:
 		return blk, nil
 
-	case bstore.ErrNotFound:
+	case blockstore.ErrNotFound:
 		return s.cold.Get(cid)
 
 	default:
@@ -137,7 +140,7 @@ func (s *SplitStore) GetSize(cid cid.Cid) (int, error) {
 	case nil:
 		return size, nil
 
-	case bstore.ErrNotFound:
+	case blockstore.ErrNotFound:
 		return s.cold.GetSize(cid)
 
 	default:
@@ -241,7 +244,7 @@ func (s *SplitStore) HashOnRead(enabled bool) {
 func (s *SplitStore) View(cid cid.Cid, cb func([]byte) error) error {
 	err := s.hot.View(cid, cb)
 	switch err {
-	case bstore.ErrNotFound:
+	case blockstore.ErrNotFound:
 		return s.cold.View(cid, cb)
 
 	default:
